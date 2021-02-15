@@ -15,9 +15,13 @@
 #include <ws2tcpip.h>
 #endif
 
-// remove leading and trailing whitespace, modify input string
-// return pointer to string
-char * trim_lr(char * s)
+/* TODO:
+ * make this multithreaded
+ */
+
+/* remove leading and trailing whitespace, modify input string; return pointer to string */
+static char *
+trim_lr(char * s)
 {
     while (*s == ' ')
         s++;
@@ -27,9 +31,10 @@ char * trim_lr(char * s)
     return s;
 }
 
-// remove trailing whitespace, modify input string
-// return number of removed characters
-size_t chomp(char * s)
+#if 0
+/* remove trailing whitespace, modify input string; return number of removed characters */
+static size_t
+chomp(char * s)
 {
     char * last = s + strlen(s) - 1;
     char * p = last;
@@ -37,15 +42,29 @@ size_t chomp(char * s)
         *(p--) = '\0';
     return last-p;
 }
+#endif
 
 #if MINGW
-void win32_init_code()
+static void
+win32_init_code()
 {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(1,1), &wsaData) != 0) {
         fprintf(stderr, "WSAStartup failed.\n");
         exit(EXIT_FAILURE);
     }
+}
+
+static void
+wsa_error()
+{
+    int wsa_errno = WSAGetLastError();
+    char * err_msg;
+    switch (wsa_errno) {
+        case WSAECONNREFUSED: err_msg = "Connection refused."; break;
+        default: err_msg = "unknown error"; break;
+    }
+    printf("%s (%d)\n", err_msg, wsa_errno);
 }
 #endif
 
@@ -86,7 +105,7 @@ int main(int argc, char * argv[])
 
 #if MINGW
     if ((sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) == INVALID_SOCKET) {
-        printf("%d\n", WSAGetLastError());
+        wsa_error();
         exit(EXIT_FAILURE);
     }
 #else
@@ -105,9 +124,10 @@ int main(int argc, char * argv[])
     printf("Connecting...");
     if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
 #if MINGW
-        printf("%d\n", WSAGetLastError());
-#endif
+        wsa_error();
+#else
         perror("connect() error");
+#endif
         exit(EXIT_FAILURE);
     }
     printf("Connected!\n");
